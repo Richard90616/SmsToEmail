@@ -149,17 +149,35 @@ class MainActivity : AppCompatActivity() {
                 from = cfg.mailFrom,
                 password = cfg.mailPassword,
                 to = cfg.mailTo,
-                subject = "[SmsToEmail] 测试邮件",
+                subject = "[SmsToEmail] Test mail",
                 body = buildString {
-                    appendLine("这是一封测试邮件。")
-                    appendLine("如果你收到此邮件, 表明 SMTP 配置正确。")
-                    appendLine("时间: ${java.util.Date()}")
-                    appendLine("机型: ${Build.MANUFACTURER} ${Build.MODEL}")
+                    appendLine("This is a test email.")
+                    appendLine("If you receive it, SMTP config is correct.")
+                    appendLine("Time: ${java.util.Date()}")
+                    appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
                 }
             )
-            val msg = if (r.isSuccess) "已发送, 请检查邮箱" else "失败: ${r.exceptionOrNull()?.message}"
+            val msg = if (r.isSuccess) "Sent, check inbox" else "Failed: ${r.exceptionOrNull()?.message}"
             Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
             Notifier.notifyTest(this@MainActivity, msg, r.isSuccess)
         }
+    }
+
+    private fun showLogDialog() {
+        val entries = SmsLogStore.snapshot()
+        val text = if (entries.isEmpty()) {
+            "No SMS forwarded yet"
+        } else {
+            entries.takeLast(50).reversed().joinToString("\n") { SmsLogStore.format(it) }
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Recent SMS forwarding log (last 50)")
+            .setMessage(text)
+            .setPositiveButton("Close", null)
+            .setNeutralButton("Clear") { _, _ ->
+                SmsLogStore.clear()
+                Toast.makeText(this, "Cleared", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 }
