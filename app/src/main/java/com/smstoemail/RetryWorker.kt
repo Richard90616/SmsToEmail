@@ -17,7 +17,19 @@ import java.util.concurrent.TimeUnit
 class RetryWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
-        val cfg = ConfigManager(applicationContext)
+        return try {
+            doWorkInner()
+        } catch (t: Throwable) {
+            Log.e(TAG, "outer crash: ${t.javaClass.simpleName}: ${t.message}", t)
+            try { SmsLogStore.add(SmsLogStore.Level.FAIL, "?", "RetryWorker crash: ${t.message}") } catch (_: Throwable) {}
+            if (runAttemptCount >= 3) Result.failure() else Result.retry()
+        }
+    }
+
+    private suspend fun doWorkInner(): Result {
+        val cfg = try { ConfigManager(applicationContext) } catch (t: Throwable) {
+            Log.e(TAG, "ConfigManager failed", t); return Result.failure()
+        }
         if (!cfg.enabled || !cfg.isConfigured()) {
             return Result.failure()
         }
