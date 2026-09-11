@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 禁止系统备份短信/邮件凭据 -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="sms_to_email_prefs.xml" />
+</full-backup-content>
