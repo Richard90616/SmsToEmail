@@ -3,41 +3,38 @@ package com.smstoemail
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Context
 import android.os.Build
 
-/**
- * 应用入口。
- * - 创建前台保活通知 Channel
- * - 全局异常兜底，防止进程崩掉后不再监听
- */
 class SmsApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        appContext = this
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(NotificationManager::class.java)
             nm?.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_KEEPALIVE,
-                    "短信转发保活",
+                    "SMS forwarding keep-alive",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "保持监听短信广播"
+                    description = "keeps SMS receiver alive"
                     setShowBadge(false)
                 }
             )
             nm?.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_STATUS,
-                    "转发状态",
+                    "Forwarding status",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "短信转发结果通知"
+                    description = "SMS forwarding result"
                 }
             )
         }
 
-        // 兜底：捕获未处理异常，写入日志
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             android.util.Log.e("SmsApp", "uncaught on $thread", throwable)
@@ -48,5 +45,9 @@ class SmsApp : Application() {
     companion object {
         const val CHANNEL_KEEPALIVE = "channel_keepalive"
         const val CHANNEL_STATUS = "channel_status"
+
+        @Volatile
+        var appContext: Context? = null
+            private set
     }
 }
