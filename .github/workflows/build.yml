@@ -1,11 +1,10 @@
 # 自动构建 Android APK
-# 触发条件: push 到 main/master 分支, 或手动触发
 name: Build Android APK
 
 on:
   push:
     branches: [main, master]
-  workflow_dispatch:                # 允许在网页手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,16 +21,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 配置 Gradle
+      - name: 配置 Gradle (使用 setup-gradle action)
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.5'
 
-      - name: 授予 Gradle Wrapper 执行权限
-        run: chmod +x gradlew
-
-      - name: 编译 Debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: 编译 Debug APK (直接用 gradle 命令, 不依赖 gradlew)
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: 上传 APK (保留 30 天)
         uses: actions/upload-artifact@v4
@@ -40,13 +36,3 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
-
-      # 可选: 上传 Release APK (需先签名, 详见 README)
-      # - name: 编译 Release APK
-      #   run: ./gradlew :app:assembleRelease
-      # - name: 上传 Release APK
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: app-release
-      #     path: app/build/outputs/apk/release/app-release.apk
-      #     retention-days: 30
