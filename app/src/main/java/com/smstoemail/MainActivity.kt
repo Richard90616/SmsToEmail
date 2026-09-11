@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -69,6 +70,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnTest.setOnClickListener {
             doTestSend()
+        }
+
+        binding.btnShowLog.setOnClickListener {
+            showLogDialog()
         }
 
         binding.switchEnable.setOnCheckedChangeListener { _, checked ->
