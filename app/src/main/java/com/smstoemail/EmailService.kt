@@ -59,21 +59,34 @@ object EmailService {
                     PasswordAuthentication(from, password)
             })
             val msg = MimeMessage(session).apply {
-                setFrom(InternetAddress(from))
-                // 支持多个收件人 (逗号分隔)
-                setRecipients(
-                    Message.RecipientType.TO,
-                    InternetAddress.parse(to.replace("，", ",").replace(";", ","))
-                )
-                setSubject(subject, "UTF-8")
-                setText(body, "UTF-8")
+                try { setFrom(InternetAddress(from)) } catch (e: Exception) {
+                    Log.e(TAG, "setFrom failed: ${e.message}")
+                    return Result.failure(e)
+                }
+                try {
+                    setRecipients(
+                        Message.RecipientType.TO,
+                        InternetAddress.parse(to.replace("，", ",").replace(";", ","))
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "setRecipients failed: ${e.message}")
+                    return Result.failure(e)
+                }
+                try { setSubject(subject, "UTF-8") } catch (_: Exception) { /* ok */ }
+                try { setText(body, "UTF-8") } catch (_: Exception) { /* ok */ }
             }
-            Transport.send(msg)
+            try {
+                Transport.send(msg)
+            } catch (e: Exception) {
+                Log.e(TAG, "Transport.send failed: ${e.message}")
+                return Result.failure(e)
+            }
             Log.i(TAG, "邮件发送成功 -> $to (subject=$subject)")
             Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "邮件发送失败: ${e.message}", e)
-            Result.failure(e)
+        } catch (e: Throwable) {
+            // Throwable 兜底: OutOfMemoryError / StackOverflowError 也吞
+            Log.e(TAG, "send threw: ${e.javaClass.simpleName}: ${e.message}", e)
+            Result.failure(if (e is Exception) e else RuntimeException(e))
         }
     }
 
@@ -88,6 +101,11 @@ object EmailService {
         subject: String,
         body: String
     ): Result<Unit> = withContext(Dispatchers.IO) {
-        send(host, port, useSsl, from, password, to, subject, body)
+        try {
+            send(host, port, useSsl, from, password, to, subject, body)
+        } catch (t: Throwable) {
+            Log.e(TAG, "sendAsync top-level: ${t.message}", t)
+            Result.failure(if (t is Exception) t else RuntimeException(t))
+        }
     }
 }
