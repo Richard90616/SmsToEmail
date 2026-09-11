@@ -10,18 +10,25 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- 开机自启 -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- 后台保活 (Foreground Service, Android 14 需要) -->
+    <!-- 前台保活 (Foreground Service, Android 14 需要) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-    <!-- 可选: 设为默认短信应用才能读取历史 -->
-    <uses-permission android:name="android.permission.WRITE_CONTACTS"
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:node="remove" />
+
+    <!-- 防止 WorkManager 默认初始化报错 (api 34) -->
+    <provider
+        android:name="androidx.startup.InitializationProvider"
+        android:authorities="${applicationId}.androidx-startup"
+        android:exported="false"
+        tools:node="merge">
+        <meta-data
+            android:name="androidx.work.WorkManagerInitializer"
+            android:value="androidx.startup"
+            tools:node="remove" />
+    </provider>
 
     <application
         android:name=".SmsApp"
