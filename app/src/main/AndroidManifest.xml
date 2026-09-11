@@ -19,16 +19,7 @@
         tools:node="remove" />
 
     <!-- 防止 WorkManager 默认初始化报错 (api 34) -->
-    <provider
-        android:name="androidx.startup.InitializationProvider"
-        android:authorities="${applicationId}.androidx-startup"
-        android:exported="false"
-        tools:node="merge">
-        <meta-data
-            android:name="androidx.work.WorkManagerInitializer"
-            android:value="androidx.startup"
-            tools:node="remove" />
-    </provider>
+    <!-- provider 必须在 application 内 -->
 
     <application
         android:name=".SmsApp"
@@ -41,6 +32,17 @@
         android:theme="@style/Theme.SmsToEmail"
         android:usesCleartextTraffic="false"
         tools:targetApi="34">
+
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
 
         <activity
             android:name=".MainActivity"
