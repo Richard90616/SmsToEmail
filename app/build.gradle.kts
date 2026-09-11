@@ -58,5 +58,8 @@ dependencies {
     // 加密 SharedPreferences (Keystore 派生密钥)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // WorkManager 兜底重试 (进程被杀也能拉起)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     testImplementation("junit:junit:4.13.2")
 }
