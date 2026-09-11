@@ -46,30 +46,43 @@ object Notifier {
     }
 
     private fun build(context: Context, title: String, text: String): NotificationCompat.Builder {
-        val pi = PendingIntent.getActivity(
-            context, 0,
-            Intent(context, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pi = try {
+            PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } catch (t: Throwable) {
+            android.util.Log.w("Notifier", "PendingIntent failed: ${t.message}")
+            null
+        }
         return NotificationCompat.Builder(context, SmsApp.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_notification_email)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(pi)
+            .also { if (pi != null) it.setContentIntent(pi) }
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
     }
 
     private fun notify(context: Context, id: Int, n: NotificationCompat.Builder) {
-        // Android 13+ 需要运行时权限
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) return
+        try {
+            // Android 13+ 需要运行时权限
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) return
+            }
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                ?: return
+            val notif = try { n.build() } catch (t: Throwable) {
+                android.util.Log.w("Notifier", "build failed: ${t.message}"); return
+            }
+            nm.notify(id, notif)
+        } catch (t: Throwable) {
+            android.util.Log.w("Notifier", "notify swallowed: ${t.message}")
         }
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(id, n.build())
     }
 }
