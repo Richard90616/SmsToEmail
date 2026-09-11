@@ -25,8 +25,9 @@
     <string name="switch_enable">启用短信转发</string>
     <string name="switch_keepalive">保持后台运行 (耗电↑)</string>
 
-    <string name="btn_save">保存</string>
-    <string name="btn_test">测试发送</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_test">Send test</string>
+    <string name="btn_show_log">View forwarding log</string>
     <string name="label_summary">当前配置</string>
 
     <string name="help_text">
