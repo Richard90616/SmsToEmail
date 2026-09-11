@@ -1,0 +1,48 @@
+<resources>
+    <string name="app_name">短信转发邮箱</string>
+
+    <string name="section_smtp">SMTP 服务器</string>
+    <string name="hint_smtp_host">SMTP 主机 (例 smtp.qq.com)</string>
+    <string name="hint_smtp_port">端口</string>
+    <string name="label_ssl">SSL/465</string>
+
+    <string name="section_mail">邮箱账号</string>
+    <string name="hint_mail_from">发件邮箱</string>
+    <string name="hint_mail_password">授权码 / 密码</string>
+    <string name="hint_mail_to">收件邮箱 (多个用逗号分隔)</string>
+
+    <string name="section_filter">过滤规则</string>
+    <string name="hint_whitelist">白名单号码 (逗号分隔, 空=全部)</string>
+    <string name="hint_keyword">关键字正则 (空=全部)</string>
+    <string name="hint_dedup">去重窗口 (秒)</string>
+
+    <string name="section_permission">权限</string>
+    <string name="label_perm_sms">短信读取权限</string>
+    <string name="label_perm_notif">通知权限</string>
+    <string name="btn_request_sms">申请短信权限</string>
+    <string name="btn_request_notif">申请通知权限</string>
+
+    <string name="switch_enable">启用短信转发</string>
+    <string name="switch_keepalive">保持后台运行 (耗电↑)</string>
+
+    <string name="btn_save">保存</string>
+    <string name="btn_test">测试发送</string>
+    <string name="label_summary">当前配置</string>
+
+    <string name="help_text">
+        使用说明:\n
+        1. 填写 SMTP 服务器 (见下方常用配置)\n
+        2. 邮箱密码处填写 "授权码", 不是登录密码\n
+        3. 申请权限并打开 "启用短信转发"\n
+        4. 点击 "测试发送" 验证邮箱配置\n
+        5. MIUI/EMUI 等系统需手动开启 "自启动"\n
+        \n
+        常用 SMTP:\n
+        QQ: smtp.qq.com:465 (SSL)\n
+        163: smtp.163.com:465 (SSL) 或 :25\n
+        Gmail: smtp.gmail.com:465 (SSL)\n
+        Outlook: smtp.office365.com:587 (STARTTLS)\n
+        \n
+        注意: Android 13+ 强烈建议同时设为 "默认短信应用" 以稳定接收, 设置方法: 系统设置 → 应用 → 默认应用 → 短信 → 选择本应用。
+    </string>
+</resources>
