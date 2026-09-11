@@ -24,7 +24,7 @@ jobs:
       - name: 配置 Gradle (使用 setup-gradle action)
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.7'
 
       - name: 编译 Debug APK (直接用 gradle 命令, 不依赖 gradlew)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
