@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Telephony
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -13,18 +14,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 短信接收器。
- *
- * 监听 SMS_RECEIVED 广播, 解析 PDU 后:
- * 1) 白名单过滤
- * 2) 关键字过滤
- * 3) 去重（短时间内相同发件人+内容只转发一次）
- * 4) 异步发送邮件
- *
- * BroadcastReceiver 在 Android 中执行时间极短（约 10 秒），因此邮件发送
- * 必须用 goAsync() + 协程，否则会被系统 kill 掉。
- */
 class SmsReceiver : BroadcastReceiver() {
 
     private val pendingResult by lazy { goAsync() }
@@ -35,12 +24,12 @@ class SmsReceiver : BroadcastReceiver() {
 
         val cfg = ConfigManager(context)
         if (!cfg.enabled) {
-            Log.d(TAG, "总开关未启用, 跳过")
+            Log.d(TAG, "disabled, skip")
             pendingResult.finish()
             return
         }
         if (!cfg.isConfigured()) {
-            Log.w(TAG, "邮件未配置, 跳过")
+            SmsLogStore.add(SmsLogStore.Level.FAIL, "?", "mail not configured, drop")
             pendingResult.finish()
             return
         }
@@ -51,60 +40,76 @@ class SmsReceiver : BroadcastReceiver() {
             return
         }
 
-        // 拼拼接号(分片短信)
         val sender = messages[0].displayOriginatingAddress ?: "unknown"
         val body = messages.joinToString(separator = "") { it.displayMessageBody ?: "" }
         val ts = messages[0].timestampMillis
 
-        // 过滤
         if (!passWhitelist(sender, cfg.whitelist)) {
-            Log.d(TAG, "号码 $sender 不在白名单, 跳过")
+            SmsLogStore.add(SmsLogStore.Level.INFO, sender, "whitelist filtered, skip")
             pendingResult.finish()
             return
         }
         if (!passKeyword(body, cfg.keywordFilter)) {
-            Log.d(TAG, "内容不匹配关键字 ${cfg.keywordFilter}, 跳过")
+            SmsLogStore.add(SmsLogStore.Level.INFO, sender, "keyword filtered, skip")
             pendingResult.finish()
             return
         }
         if (DedupStore.isDuplicate(sender, body, ts, cfg.dedupWindowSec)) {
-            Log.d(TAG, "去重命中, 跳过 ($sender)")
+            SmsLogStore.add(SmsLogStore.Level.INFO, sender, "dedup hit, skip")
             pendingResult.finish()
             return
         }
 
         val timeStr = timeFmt.format(Date(ts))
         val subject = "[SMS] $sender @ $timeStr"
+        val sep = "-".repeat(36)
         val fullBody = buildString {
-            appendLine("发件人: $sender")
-            appendLine("时间: $timeStr")
-            appendLine("机型: ${Build.MANUFACTURER} ${Build.MODEL}")
-            appendLine("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
-            appendLine("─" * 40)
+            appendLine("Sender:    $sender")
+            appendLine("Time:      $timeStr")
+            appendLine("Device:    ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Android:   ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+            appendLine(sep)
             append(body)
         }
 
+        SmsLogStore.add(SmsLogStore.Level.INFO, sender, "received (len=${body.length}), forwarding...")
+
+        // PARTIAL_WAKE_LOCK: 防止 CPU 休眠杀死进行中的 SSL 握手/SMTP 发送
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmsToEmail::SendMail")
+        wl.setReferenceCounted(false)
+        try { wl.acquire(15_000L) } catch (_: Throwable) { }
+
         CoroutineScope(Dispatchers.IO).launch {
-            val result = EmailService.sendAsync(
-                host = cfg.smtpHost,
-                port = cfg.smtpPort,
-                useSsl = cfg.smtpSsl,
-                from = cfg.mailFrom,
-                password = cfg.mailPassword,
-                to = cfg.mailTo,
-                subject = subject,
-                body = fullBody
-            )
-            result.onSuccess {
-                Notifier.notifySuccess(context, sender, body.take(50))
-            }.onFailure {
-                Notifier.notifyFailure(context, sender, it.message ?: "未知错误")
+            try {
+                val result = EmailService.sendAsync(
+                    host = cfg.smtpHost,
+                    port = cfg.smtpPort,
+                    useSsl = cfg.smtpSsl,
+                    from = cfg.mailFrom,
+                    password = cfg.mailPassword,
+                    to = cfg.mailTo,
+                    subject = subject,
+                    body = fullBody
+                )
+                result.onSuccess {
+                    SmsLogStore.add(SmsLogStore.Level.SUCCESS, sender, "delivered to ${cfg.mailTo}")
+                    Notifier.notifySuccess(context, sender, body.take(50))
+                }.onFailure { e ->
+                    val msg = e.message ?: "unknown"
+                    SmsLogStore.add(SmsLogStore.Level.FAIL, sender, "send failed: $msg (enqueue retry)")
+                    Notifier.notifyFailure(context, sender, msg)
+                    RetryWorker.enqueue(context, sender, subject, fullBody)
+                }
+            } catch (t: Throwable) {
+                SmsLogStore.add(SmsLogStore.Level.FAIL, sender, "exception: ${t.message}")
+            } finally {
+                try { if (wl.isHeld) wl.release() } catch (_: Throwable) { }
+                pendingResult.finish()
             }
-            pendingResult.finish()
         }
     }
 
-    /** 白名单: 逗号分隔, 空表示全部 */
     private fun passWhitelist(sender: String, whitelist: String): Boolean {
         if (whitelist.isBlank()) return true
         return whitelist.split(",", "，")
@@ -113,29 +118,21 @@ class SmsReceiver : BroadcastReceiver() {
             .any { sender.contains(it) }
     }
 
-    /** 关键字: 正则, 空表示全部 */
     private fun passKeyword(body: String, pattern: String): Boolean {
         if (pattern.isBlank()) return true
         return try {
             Regex(pattern).containsMatchIn(body)
         } catch (e: Exception) {
-            Log.w(TAG, "关键字正则非法 ($pattern): ${e.message}")
+            Log.w(TAG, "bad regex ($pattern): ${e.message}")
             true
         }
     }
-
-    private operator fun String.times(n: Int): String = repeat(n)
 
     companion object {
         private const val TAG = "SmsReceiver"
     }
 }
 
-/**
- * 进程内去重缓存。
- * 简单实现：内存 LRU + 时间窗口，进程被杀后丢失（重发概率极低）。
- * 如果要更严谨可改写 Room/SQLite。
- */
 object DedupStore {
     private data class Fingerprint(val sender: String, val body: String, val tsBucket: Long)
     private val seen = ArrayDeque<Fingerprint>()
@@ -147,7 +144,6 @@ object DedupStore {
         val fp = Fingerprint(sender, body.take(64), bucket)
         if (seen.any { it == fp }) return true
         seen.addLast(fp)
-        // 控制内存
         while (seen.size > 200) seen.removeFirst()
         return false
     }
