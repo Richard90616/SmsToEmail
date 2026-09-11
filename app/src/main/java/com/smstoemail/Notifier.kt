@@ -52,7 +52,7 @@ object Notifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(context, SmsApp.CHANNEL_STATUS)
-            .setSmallIcon(android.R.drawable.stat_sys_email)
+            .setSmallIcon(R.drawable.ic_notification_email)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
