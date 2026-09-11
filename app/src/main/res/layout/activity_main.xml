@@ -233,6 +233,14 @@
                 style="?attr/materialButtonOutlinedStyle" />
         </LinearLayout>
 
+        <Button
+            android:id="@+id/btnShowLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_show_log"
+            style="?attr/materialButtonOutlinedStyle" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
