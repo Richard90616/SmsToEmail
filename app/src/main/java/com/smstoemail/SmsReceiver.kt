@@ -127,7 +127,9 @@ class SmsReceiver : BroadcastReceiver() {
         try { wl?.acquire(15_000L) } catch (t: Throwable) { Log.w(TAG, "wakelock acquire failed: ${t.message}") }
 
         try {
-            val result = EmailService.sendAsync(
+            // HandlerThread 不是协程作用域, 改用同步版 send()
+            // 本来就在 worker thread 上跑, 不会阻塞 UI
+            val result = EmailService.send(
                 host = cfg.smtpHost,
                 port = cfg.smtpPort,
                 useSsl = cfg.smtpSsl,
